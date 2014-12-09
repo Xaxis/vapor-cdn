@@ -2,6 +2,16 @@ var vcdn = (function(v) {
   v.Util = {};
 
   /**
+   * Returns a timestamp that can be modified by an offset number of MS.
+   *
+   * @param offset {Number} The number of MS to offset the JS date function by.
+   * @returns {Number}
+   */
+  v.Util.timestamp = function( offset ) {
+      return offset ? Date.now() + offset : Date.now();
+  };
+
+  /**
    * Returns an array of keys that exist in a collection.
    *
    * @param col {Object} An object literal

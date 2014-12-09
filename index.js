@@ -49,9 +49,7 @@ var _                   = require('lodash'),
             socket: socket,
             id: socket.id,
             ready: msg.ready,
-            latency: (new Date().getTime() - msg.stamp),
             //coords: v.getIPCoords(socket.address),
-            // @TODO - Modify this after dev
             //coords: v.getIPCoords(_.size(hosts)),
             init: null
           };
@@ -60,15 +58,13 @@ var _                   = require('lodash'),
           hosts[socket.id].init = {
             self: {
               id: socket.id,
-              latency: hosts[socket.id].latency
+              vcdn_time: Date.now()
               //coords: hosts[socket.id].coords
             },
 
             // Return list of hosts sorted by ascending distance
             //hosts: v.getClosestHostsList(hosts[socket.id].coords, v.getPeerHosts(msg, socket))
             hosts: v.getPeerHosts(msg, socket)
-
-            //hosts: v.getPeerHosts(msg, socket)
           };
 
           // Send ready message back to host
@@ -77,8 +73,9 @@ var _                   = require('lodash'),
 
         // Register host as ready
         else if (msg.ready && (socket.id in hosts)) {
-          hosts[socket.id].assets = msg.assets;
           hosts[socket.id].ready = true;
+          hosts[socket.id].assets = msg.assets;
+          hosts[socket.id].diff_time = msg.diff_time;
         }
       };
 
@@ -93,8 +90,6 @@ var _                   = require('lodash'),
        * Get a list of available peer hosts
        */
       v.getPeerHosts = function(msg, socket) {
-
-        // @TODO - Return a metric indicating a connecting peer's bandwidth/latency
         var limit = 0;
         var ready_hosts = [];
         _.each(hosts, function(host) {
@@ -103,8 +98,9 @@ var _                   = require('lodash'),
               id: host.id,
               stamp: host.stamp,
               assets: host.assets,
-              latency: host.latency,
-              coords: host.coords
+              diff_time: host.diff_time
+              //coords: host.coords
+
             });
             limit++;
           } else {

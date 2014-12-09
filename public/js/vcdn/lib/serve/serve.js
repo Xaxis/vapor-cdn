@@ -68,8 +68,8 @@ var vcdn = (function(v) {
   v.Serve.registerAsHost = function( options ) {
     v.Log.trace('Registering as ready host.', options.assets);
     var
-      ready_assets = options.assets || {},
-      assets = {};
+      ready_assets          = options.assets || {},
+      assets                = {};
 
     // Iterate over ready assets and build an asset registration index to asssociate with peer
     for (var asset_key in ready_assets) {
@@ -80,11 +80,15 @@ var vcdn = (function(v) {
 
     // Configuration and available assets
     var config = {
-      ready: options.ready || false,
-      limit: 10,
-      stamp: new Date().getTime(),
-      assets: assets
+      limit:        10,                               // Peer host retrieval limit
+      assets:       assets                            // Available hosted assets
     };
+
+    // On ready state true secondary registration
+    if (options.ready) {
+      config.ready      = true;                                      // Ready state flag
+      config.diff_time  = v.Global.init_info.self.diff_time;         // Peer/VCDN time difference
+    }
 
     // Send to vcdn server
     v.Global.socket.emit('register', config);
@@ -246,8 +250,7 @@ var vcdn = (function(v) {
           timeout: v.Global.watcher.request_timeout,
           elapsed: 0,
           watcher: null,
-          finished: false,
-          expired: false
+          finished: false
         };
 
         // Initialize chunk request watcher
@@ -268,18 +271,60 @@ var vcdn = (function(v) {
   v.Serve.startAssetWatcher = function() {
     var ctx = this;
     return setInterval(function() {
-      ctx.watcher.elapsed += ctx.watcher.speed;
+      ctx.watcher.elapsed += v.Global.watcher.request_speed;
 
-      // @TODO - Develop method for re-requesting asset based on watcher timeout
-      // Handle timeout
-      if (ctx.watcher.elapsed >= ctx.watcher.timeout) {
-        v.Log.trace('startAssetWatcher', ctx.id + ' request expired!');
-
-        // Set flag indicating asset request has expired/timed out
-        ctx.expired = true;
-
-        // Clear the watching interval
+      // Handle asset timeout
+      if (ctx.watcher.elapsed >= v.Global.watcher.request_timeout) {
+        console.log('Asset watcher timed out!', ctx);
         clearInterval(ctx.watcher.watcher);
+      }
+
+      // Handle asset download from peer monitoring/timeout handling
+      if (ctx.watcher.peers) {
+        for (var peer_id in ctx.watcher.peers) {
+          var status = ctx.watcher.peers[peer_id];
+
+          // Initialize asset download form peer
+          if (!status.last_chunk) {
+            status.elapsed = 0;
+            status.last_chunk = status.last_chunk_received_id;
+
+            // Set the maximum time it should take the next chunk from peer to download
+            status.timeout = v.Global.watcher.chunk_timeout_multiple * status.chunk_dl_time;
+          }
+
+          // Update the elapsed time
+          status.elapsed += v.Global.watcher.request_speed;
+
+          // We received next chunk, restart elapsed time for next chunk
+          if (status.last_chunk != status.last_chunk_received_id && !status.all_chunks_received) {
+            status.last_chunk = status.last_chunk_received_id;
+            status.elapsed = 0;
+          }
+
+          // Otherwise the next chunk is taking to long from this peer
+          if (
+            status.elapsed > status.timeout &&
+            !status.all_chunks_received &&
+            !status.expired
+          ) {
+            console.log('Peer chunks taking to long!', status.elapsed, peer_id);
+
+            // Indicate status of chunk request is expired
+            status.expired = true;
+
+            // Add host to the expired hosts list
+            v.Global.init_info.expired.push(peer_id);
+
+            // Delete peer status object so it can no longer be iterated in the watcher
+            delete ctx.watcher.peers[peer_id];
+
+            // De-register peer as asset host (if not already done by a closed connection)
+            if (peer_id in v.Global.peer_asset_connections) {
+              v.Serve.handleBrokenRequests(peer_id);
+            }
+          }
+        }
       }
 
       // Handle asset download completion
@@ -288,6 +333,9 @@ var vcdn = (function(v) {
           elms        = v.Cache.getCacheableAssets('['+ v.Global.asset_attrib+'="'+ctx.id+'"]'),
           data        = ctx.chunks,
           data_blob   = new Blob(data);
+
+        // Clear the watching interval
+        clearInterval(ctx.watcher.watcher);
 
         // Load asset into DOM
         v.Cache.loadAssetToDom(elms, data_blob);
@@ -298,14 +346,11 @@ var vcdn = (function(v) {
           blob: data_blob
         });
 
-        // Set flag indicating asset is completely loaded
+        // Set flag indicating asset is completely downloaded
         ctx.watcher.finished = true;
 
         // Log the completion of a downloaded asset
         v.Log.trace('startAssetWatcher', ctx.id + ' loaded and cached.');
-
-        // Clear the watching interval
-        clearInterval(ctx.watcher.watcher);
       }
     }, ctx.watcher.speed);
   };
@@ -330,18 +375,15 @@ var vcdn = (function(v) {
       if (v.Global.watcher.elapsed >= v.Global.watcher.global_timeout) {
         v.Log.trace('startGlobalAssetWatcher', 'Global watcher expired!');
         v.Global.watcher.elapsed = 0;
-        //clearInterval(v.Global.watcher.interval);
+        clearInterval(v.Global.watcher.interval);
       }
 
-      // Iterate over pending/active peer asset download requests
+      // When peer asset requests have been made
       if (requests) {
+
+        // Iterate over pending/active peer asset download requests
         for (var asset_id in requests) {
           var request = requests[asset_id];
-
-          // Handle individual peer download request timeout
-          if (request.watcher.expired) {
-            v.Log.trace('startGlobalAssetWatcher', 'Asset ' + asset_id + ' request expired!');
-          }
 
           // Handle updating peer downloaded asset requests status objects
           if (request.watcher.finished && !v.Global.watcher.assets[asset_id].finished) {
@@ -379,7 +421,7 @@ var vcdn = (function(v) {
 
     // Build all asset tracking list
     v.Global.watcher.assets = v.Serve.buildAssetsRequestList(assets);
-    v.Log.trace('v.Global.watcher.assets', v.Global.watcher.assets);
+    //v.Log.trace('v.Global.watcher.assets', v.Global.watcher.assets);
 
     // Attach/initialize global peer download asset tracker
     if (v.Util.keys(v.Serve.request_watchers).length) {
@@ -394,7 +436,7 @@ var vcdn = (function(v) {
    *
    * @param c {Object} The P2PC onDataChannelReady modified channel object
    */
-  // @TODO - Develop more efficient way of encoding chunk headers.
+  // @TODO - Develop more efficient way of encoding chunk headers/sending data?
   v.Serve.handleSendingAssetRequest = function( c ) {
     var requests = JSON.parse(c.data);
 
@@ -406,18 +448,24 @@ var vcdn = (function(v) {
         asset_chunks  = v.Global.storage[asset_id].chunks;
 
       // Encode each requested chunk with a fixed length byte header and send to peer
-      // Include the chunk id, total chunks, timestamp, and asset uri
       asset_req.chunks.forEach(function( chunk_id ) {
         var
           chunk_to_send   = asset_chunks[chunk_id-1],
-          header_str      = chunk_id + ':' + asset_chunks.length + ':' + new Date().getTime() + ':' + asset_id,
+          header_str      =
+            chunk_id + ':' +                                                      // Chunk ID
+            asset_chunks.length + ':'                                             // Total chunk count
+            + v.Util.timestamp(-v.Global.init_info.self.diff_time) + ':'          // Corrected timestamp
+            + asset_id,                                                           // Asset URI
           header          = new Blob([v.Util.str2ab(v.Util.padString(header_str, '/', v.Global.header_length))]),
           chunk           = new Blob([header, chunk_to_send]);
 
         // Send chunk to peer
         c.channel.send(chunk);
 
-        // Build channel reference for any missing connecting hosts
+        // Update total bytes sent
+        v.Global.wire.bytes_sent += chunk.size;
+
+        // Build channel reference for any missing connecting peers
         if (!v.Global.peer_asset_connections[c.message.client_id]) {
           v.Global.peer_asset_connections[c.message.client_id] = {
             id: c.message.client_id,
@@ -436,61 +484,93 @@ var vcdn = (function(v) {
    * @param c {Object} The P2PC onDataChannelMessage modified channel object
    */
   v.Serve.handleReceivingRequest = function( c ) {
-    var
-      message         = null,
-      chunk           = null,
-      download_time   = null;
 
-    // Handle messages signaling from serving peer
-    // @TODO - Determine if this message receiving will be used. Remove if not.
-    if (typeof c.data == 'string') {
-      message = JSON.parse(c.data);
-      switch (message.message) {
-        case 'close' :
-          break;
-      }
-    }
+    // Proceed only when a host is not expired
+    if (v.Global.init_info.expired.indexOf(c.peer_id) == -1) {
+      var chunk = c.data;
 
-    // Handle
-    else {
-      chunk = c.data;
+      // Update total bytes received
+      v.Global.bytes_received += chunk.size;
 
       // Decode the header and data chunk from each received chunk
       v.Serve.receiveAssetChunk(chunk, function( chunk_obj ) {
         var
-          chunk_timestamp   = chunk_obj.chunk_timestamp,
-          chunk_elapsed     = new Date().getTime() - chunk_timestamp,
-          asset_key         = chunk_obj.id,
-          asset_id          = asset_key.replace(v.Global.cache_prefix + 'file.', ''),
-          asset_req         = v.Serve.request_watchers[asset_id],
-          chunk_id          = chunk_obj.chunk_id,
-          chunk             = chunk_obj.chunk,
-          chunks            = asset_req.chunks,
-          chunks_received   = asset_req.chunks_received,
-          watcher           = v.Serve.request_watchers[asset_id].watcher;
+          chunk_timestamp         = chunk_obj.chunk_timestamp,
+          receiving_time          = v.Util.timestamp(-v.Global.init_info.self.diff_time),
+          chunk_elapsed_time      = Math.abs(chunk_timestamp - receiving_time),
+          asset_key               = chunk_obj.id,
+          asset_id                = asset_key.replace(v.Global.cache_prefix + 'file.', ''),
+          asset_req               = v.Serve.request_watchers[asset_id],
+          chunk_id                = chunk_obj.chunk_id,
+          chunk                   = chunk_obj.chunk,
+          chunks                  = asset_req.chunks,
+          chunks_total            = chunk_obj.chunk_total,
+          chunks_received         = asset_req.chunks_received,
+          watcher                 = v.Serve.request_watchers[asset_id].watcher,
+          request                 = v.Serve.requests[c.peer_id][asset_id];
 
-        // Update watcher timeout handler time
-        // This basically says an asset shouldn't take longer to download than its first chunk multiplied by its total
-        // chunks. If it does, the asset watcher will re-request the asset from an alternative source.
-        // @TODO - Further evaluate the logic of when a timeout should happen.
-        if (!watcher.download_time) {
-          watcher.download_time = ((chunk_obj.chunk_total * chunk_elapsed) + watcher.elapsed) * v.Global.watcher.request_timeout_multiple;
-          watcher.timeout = watcher.download_time;
-        }
-
-        console.log('From: ', c.peer_id, ' Receiving chunk ', chunk_id, ' of asset: ', asset_id);
-        //console.log('watcher: ', watcher);
-        //console.log('Receiving data...');
+        // Update the chunk id received for each peer for each asset in the v.Serve.requests object
+        request.chunks_received = request.chunks_received || [];
+        var chunks_received_per = (request.chunks_received ? request.chunks_received.length : 1) + 1;
 
         // Update the chunk id received in the v.Serve.requests_watcher object
         chunks_received.push(chunk_id);
+        request.chunks_received.push(chunk_id);
 
-        // Update the chunk id received for each peer for each asset in the v.Serve.requests object
-        v.Serve.requests[c.peer_id][asset_id].chunks_received = v.Serve.requests[c.peer_id][asset_id].chunks_received || [];
-        v.Serve.requests[c.peer_id][asset_id].chunks_received.push(chunk_id);
+        // Calculate initial asset chunk download stats
+        if (!request.status) {
+          request.status = {
+            chunk_dl_time: chunk_elapsed_time,
+            estimated_dl_time: chunks_total * chunk_elapsed_time,
+            last_chunk_dl_time: chunk_elapsed_time,
+            actual_dl_time: 0,
+            all_chunks_received: false
+          };
+
+          //console.log('estimate_dl_time', request.status.estimated_dl_time);
+          var connection = v.Global.peer_asset_connections[c.peer_id].connects[c.peer_id].connection;
+          connection.getStats(function() {}, function() {}, function() {});
+        }
+
+        // Indicate the ID of the last chunk received
+        request.status.last_chunk_received_id = chunk_id;
+
+        // Update last chunk download time. Since sending timestamps are created a mere 1 to 2 MS apart and the receiving
+        // timestamp calculation is blocked by the synchronous transfer of the chunk that came before it, we calculate
+        // the last chunk's download time by finding the current chunk_elapsed_time as the difference of the product of
+        // the first chunk's dl time by the number of chunks that have yet been received.
+        var last_chunk_dl_diff = chunk_elapsed_time - (request.status.chunk_dl_time * chunks_received_per);
+        request.status.last_chunk_dl_time = Math.abs(request.status.chunk_dl_time + last_chunk_dl_diff);
+
+        // Increment the "actual" total (per asset) download time
+        request.status.actual_dl_time += request.status.last_chunk_dl_time;
+
+        // Create a peer status reference object within each asset watcher
+        if (!watcher.peers) {
+          watcher.peers = {};
+        }
+
+        // Reference each asset's peer status objects within the assets watcher
+        if (!(c.peer_id in watcher.peers)) {
+          watcher.peers[c.peer_id] = request.status;
+        }
 
         // Place the asset chunk in the chunk buffer at the appropriate index
         chunks[(chunk_id-1)] = chunk;
+
+        // Update the request status finished flag when we've received all chunks for a given asset from peer
+        if (request.chunks.length == request.chunks_received.length) {
+          request.status.all_chunks_received = true;
+
+          //console.log('actual_dl_time: ', request.status.actual_dl_time);
+        }
+
+        //console.log('watcher', watcher);
+        //console.log('last chunk DL time: ', c.peer_id, request.status.last_chunk_dl_time);
+        //console.log('actual total DL time: ', request.status.actual_dl_time);
+        //console.log('request status: ', request);
+        //console.log('From: ', c.peer_id, ' Receiving chunk ', chunk_id, ' of asset: ', asset_id);
+        //console.log('Receiving data...');
       });
     }
   };
@@ -571,8 +651,7 @@ var vcdn = (function(v) {
    * @returns {Array} List of active hosts by their reference (socket) id
    */
   v.Serve.getActiveHosts = function( hosts ) {
-    var
-      active_hosts       = [];
+    var active_hosts = [];
 
     // Iterate over p2pc connection objects
     v.Util.forEach(hosts, function(host, host_id) {
@@ -611,41 +690,45 @@ var vcdn = (function(v) {
       connections         = v.Global.peer_asset_connections,
       missing_assets      = {};
 
-    // Iterate over assets and determine the missing chunks for each
-    v.Util.forEach(v.Serve.requests[peer_id], function( asset_request, asset_id ) {
-      var chunks_requested = asset_request.chunks;
-      var chunks_received = asset_request.chunks_received;
-      var chunks_diff = v.Util.diffArray(chunks_requested, chunks_received || []);
+    // Proceed only when this peer connection still exists
+    if (peer_id in connections) {
 
-      // Assign an assets missing chunks by asset id
-      if (chunks_diff.length) {
-        missing_assets[asset_id] = missing_assets[asset_id] || {};
-        missing_assets[asset_id].chunks = chunks_diff;
+      // Iterate over assets and determine the missing chunks for each
+      v.Util.forEach(v.Serve.requests[peer_id], function( asset_request, asset_id ) {
+        var chunks_requested = asset_request.chunks;
+        var chunks_received = asset_request.chunks_received;
+        var chunks_diff = v.Util.diffArray(chunks_requested, chunks_received || []);
+
+        // Assign an assets missing chunks by asset id
+        if (chunks_diff.length) {
+          missing_assets[asset_id] = missing_assets[asset_id] || {};
+          missing_assets[asset_id].chunks = chunks_diff;
+        }
+      });
+
+      // Remove global peer connection object
+      delete connections[peer_id];
+
+      // Remove init info related to connection
+      var host_info = v.Serve.getPeerHostInfo(peer_id);
+      hosts.splice(host_info.index, 1);
+
+      // Remove the peer's request object
+      delete v.Serve.requests[peer_id];
+
+      // If further hosts available and asset chunks are missing, request from another peer.
+      if (v.Global.init_info.hosts.length && v.Util.keys(missing_assets).length) {
+        var host = v.Util.first(hosts);
+        var channel = connections[host.id].channels['peerAssetsConnection'];
+
+        // Request assets from peer
+        channel.send(JSON.stringify(missing_assets));
       }
-    });
 
-    // Remove global peer connection object
-    delete connections[peer_id];
-
-    // Remove init info related to connection
-    var host_info = v.Serve.getPeerHostInfo(peer_id);
-    hosts.splice(host_info.index, 1);
-
-    // Remove the peer's request object
-    delete v.Serve.requests[peer_id];
-
-    // If further hosts available and asset chunks are missing, request from another peer.
-    if (v.Global.init_info.hosts.length && v.Util.keys(missing_assets).length) {
-      var host = v.Util.first(hosts);
-      var channel = connections[host.id].channels['peerAssetsConnection'];
-
-      // Request assets from peer
-      channel.send(JSON.stringify(missing_assets));
-    }
-
-    // If we have no additional peers, retrieve missing assets from server
-    else {
-      v.Serve.getAssetsFromServer({noWatcher: true});
+      // If we have no additional peers, retrieve missing assets from server
+      else {
+        v.Serve.getAssetsFromServer({noWatcher: true});
+      }
     }
   };
 
@@ -684,62 +767,74 @@ var vcdn = (function(v) {
       assets_served         = v.Util.getArrayValuesEqual(assets_needed, v.Util.diffArray(assets_needed, assets_hosted)),
       assets_needed_peers   = v.Util.diffArray(v.Util.getArrayValuesEqual(assets_needed, v.Util.diffArray(assets_needed, assets_served)), v.Cache.getCachedAssetList());
 
-    // Build asset chunk request(s) message for peers (assists in monitoring downloads from peers)
-    v.Serve.requests = v.Serve.buildAssetsRequestMessage({hosts: options.hosts, assets: assets_needed_peers});
-    //v.Log.trace('v.Serve.requests', v.Serve.requests);
+    //console.log('assets_hosted', assets_hosted);
+    //console.log('assets_needed', assets_needed);
+    //console.log('assets_needed_peers', assets_needed_peers);
+    //console.log('assets_served', assets_served);
 
-    // Update the request(s) tracking object (assists in monitoring downloads from peers)
-    v.Serve.request_watchers = v.Serve.buildAssetsRequestTracker(v.Serve.requests);
-    //v.Log.trace('v.Serve.request_watchers', v.Serve.request_watchers);
+    // When there are assets needed from peers
+    if (assets_needed_peers.length) {
+
+      // Build asset chunk request(s) message for peers (assists in monitoring downloads from peers)
+      v.Serve.requests = v.Serve.buildAssetsRequestMessage({hosts: options.hosts, assets: assets_needed_peers});
+      v.Log.trace('v.Serve.requests', v.Serve.requests);
+
+      // Update the request(s) tracking object (assists in monitoring downloads from peers)
+      v.Serve.request_watchers = v.Serve.buildAssetsRequestTracker(v.Serve.requests);
+      //v.Log.trace('v.Serve.request_watchers', v.Serve.request_watchers);
+    }
 
     // Initialize global status watcher/tracker
     v.Serve.initGlobalStatusWatcher(assets_needed);
 
-    // Iterate through each peer host
-    v.Util.forEach(v.Global.init_info.hosts, function( host ) {
+    // When there are assets need from peers
+    if (assets_needed_peers.length) {
 
-      // Start a new asset request listener
-      var peerAssetsConnection = v.Serve.startAssetRequestListener({
-        id: host.id,
-        socket: options.socket,
-        handleRequest: v.Serve.handleSendingAssetRequest
+      // Iterate through each peer host
+      v.Util.forEach(v.Global.init_info.hosts, function( host ) {
+
+        // Start a new asset request listener
+        var peerAssetsConnection = v.Serve.startAssetRequestListener({
+          id: host.id,
+          socket: options.socket,
+          handleRequest: v.Serve.handleSendingAssetRequest
+        });
+
+        // Define a call handler for each host
+        peerAssetsConnection.openListeningChannel({
+          client_id: options.self.id,
+          channel_id: 'peerAssetsConnection',
+          connection_id: host.id,
+
+          // Request assets from peers
+          onDataChannelOpen: function( c )  {
+            //v.Log.trace('onDataChannelOpen:', 'Requesting assets', c, v.Serve.requests[host.id]);
+            c.channel.send(JSON.stringify(v.Serve.requests[host.id]));
+          },
+
+          // Receive assets from peers
+          onDataChannelMessage: function( c ) {
+            //v.Log.trace('onDataChannelMessage:', 'Receiving assets', c);
+            v.Serve.handleReceivingRequest(c);
+          },
+
+          // Handle disconnecting peers
+          onDataChannelClose: function( c ) {
+            //v.Log.trace('onDataChannelMessage:', 'Closed channel', c);
+            v.Serve.handleBrokenRequests(c.peer_id);
+          },
+
+          // Handle errors
+          onDataChannelError: function( c ) {
+            //v.Log.trace('onDataChannelError:', 'error', c);
+          }
+        });
       });
-
-      // Define a call handler for each host
-      peerAssetsConnection.openListeningChannel({
-        client_id: options.self.id,
-        channel_id: 'peerAssetsConnection',
-        connection_id: host.id,
-
-        // Request assets from peers
-        onDataChannelOpen: function( c )  {
-          //v.Log.trace('onDataChannelOpen:', 'Requesting assets', c, v.Serve.requests[host.id]);
-          c.channel.send(JSON.stringify(v.Serve.requests[host.id]));
-        },
-
-        // Receive assets from peers
-        onDataChannelMessage: function( c ) {
-          //v.Log.trace('onDataChannelMessage:', 'Receiving assets', c);
-          v.Serve.handleReceivingRequest(c);
-        },
-
-        // Handle disconnecting peers
-        onDataChannelClose: function( c ) {
-          //v.Log.trace('onDataChannelMessage:', 'Closed channel', c);
-          v.Serve.handleBrokenRequests(c.peer_id);
-        },
-
-        // Handle errors
-        onDataChannelError: function( c ) {
-          //v.Log.trace('onDataChannelError:', 'error', c);
-        }
-      });
-    });
+    }
 
     // Get any assets not available from peers from server
     if (assets_served.length) {
-      v.Global.watcher.finished = false;
-      v.Serve.getAssetsFromServer({assets: assets_served, socket: options.socket});
+      v.Serve.getAssetsFromServer({assets: assets_served});
     }
   };
 

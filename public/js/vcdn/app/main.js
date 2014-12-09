@@ -6,11 +6,7 @@ var vcdn = (function(v) {
 
   // @TODO - Finish asset watcher fail backs
 
-  // @TODO - Develop functionality to cache text based assets in local storage
-
-  // @TODO - When asset is interrupted (when handleBrokenRequests is called), host fails to register
-  // as a ready host even after retrieving assets from an alternate source. Fix.
-
+  // @TODO - Calculate transfer latency for each peer, fail a peer if they're taking to long
 
   // Form socket connection with server
   var socket = v.Global.socket = io.connect();
@@ -25,7 +21,11 @@ var vcdn = (function(v) {
     v.Log.trace('initInfo', initInfo);
     v.Log.trace('initInfo.hosts', initInfo.hosts);
 
-    // Register init message globally
+    // Immediately record and compute peer's time difference with server
+    initInfo.self.diff_time = v.Util.timestamp(-initInfo.self.vcdn_time);
+
+    // Register init message globally and add array to store expired hosts
+    initInfo.expired = [];
     v.Global.init_info = initInfo;
 
     // Clear dead assets
@@ -35,11 +35,7 @@ var vcdn = (function(v) {
     v.Cache.loadAllCachedAssets();
 
     // 1) No peers available OR environment not stable
-    // -- download remaining assets from server
-    // -- save downloaded files
-    // -- start listening for peer connections
-    // -- register as a ready host
-    if (!initInfo.hosts.length || !v.Global.environment_stable) {
+    if (!initInfo.hosts.length) {
       v.Log.trace('vcdn ready: ', 'condition 1');
       v.Serve.getAssetsFromServer({});
 
@@ -52,8 +48,6 @@ var vcdn = (function(v) {
     }
 
     // 2) Peers available
-    // -- register asset request listener in onBefore
-    // -- download peer asset(s)
     else if (initInfo.hosts.length) {
       v.Log.trace('vcdn ready: ', 'condition 2');
       v.Serve.getAssetsFromPeers({
@@ -70,7 +64,6 @@ var vcdn = (function(v) {
   // @TODO - Expose useful methods for API that will allow developers to use VCDN programatically.
   return function( elm ) {
     return {
-      //registerNewAsset: v.Serve.registerNewAsset
     }
   };
 }(vcdn || {}));

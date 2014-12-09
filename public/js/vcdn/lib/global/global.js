@@ -19,7 +19,7 @@ var vcdn = (function(v, global) {
     // Default debugging message prefix
     default_trace_msg: 'module_name: ',
 
-    // A flag indicating whether or not client is capable of supporting VCDN technologies
+    // Function returns a flag indicating whether or not client is capable of supporting VCDN
     environment_stable: function() {
       var
         stable    = true,
@@ -42,7 +42,15 @@ var vcdn = (function(v, global) {
             navigator.getUserMedia,
             navigator.mozGetUserMedia,
             navigator.webkitGetUserMedia
+          ],
+          storage: [
+            window.localStorage,
+            window.sessionStorage
+          ],
+          time: [
+            window.Date.now
           ]
+
         };
 
       // Run tests
@@ -105,15 +113,11 @@ var vcdn = (function(v, global) {
     // Asset storage (where retrieved asset data is stored)
     storage: {},
 
-    // Asset storage list (index used to track asset download progress)
-    // @TODO - Remove, this is unused.
-    storage_list: {},
-
     // Holds default storage mode ('session', 'local', 'indexed', or 'hybrid')
     storage_mode: 'session',
 
     // Initialize Super Globals
-    super: function() {
+    super_globals: function() {
       var globals = {
 
         // WebRTC
@@ -128,7 +132,7 @@ var vcdn = (function(v, global) {
         IDBKeyRange: window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange
       };
 
-      // Attach super globals to global scope
+      // Attach super_globals globals to global scope
       for (var key in globals) {
         global[key] = globals[key];
       }
@@ -143,15 +147,21 @@ var vcdn = (function(v, global) {
 
     // Global watcher config
     watcher: {
-      assets: null,
-      elapsed: 0,
-      interval: null,
-      global_speed: 50,
-      global_timeout: 50000,
-      request_speed: 50,
-      request_timeout: 5000,
-      request_timeout_multiple: 2,
-      finished: true
+      assets: null,                     // Holds status objects of all assets needed
+      elapsed: 0,                       // Time passed since needed assets began downloading
+      interval: null,                   // A reference to the global watcher interval
+      global_speed: 50,                 // How often the global watcher interval iterates
+      global_timeout: 50000,            // The time in MS in which the global watcher times out
+      request_speed: 50,                // How often an asset watcher interval iterates
+      request_timeout: 5000,            // The time in MS in which an asset watcher times out
+      finished: true,                   // A flag indicating all assets have downloaded
+      chunk_timeout_multiple: 4         // A multiple used by the max timeout for a chunk from a given peer
+    },
+
+    // Holds data related to bandwidth/latency/connection monitoring
+    wire: {
+      bytes_sent: 0,
+      bytes_received: 0
     }
   };
 
