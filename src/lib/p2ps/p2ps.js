@@ -1,4 +1,4 @@
-var vcdn = (function(v) {
+(function(v) {
   v.P2PS = function( options ) {
 
     /**

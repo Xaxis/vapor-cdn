@@ -1,11 +1,11 @@
 {
-  "name": "vapor-cdn",
-  "version": "0.0.0",
-  "copyright": "Wil Neeley © 2014",
+  "name": "vcdn",
+  "version": "1.0.0",
+  "copyright": "Wil Neeley ©",
   "title": "The browser content delivery paradigm shift starts with Vapor CDN.",
   "description": "The Vapor Content Delivery Network is a system that will allow web sites and web applications to deliver content (site files such as images, scripts, other media, etc.) from concurrent site users thus reducing the content serving loads of primary content servers.",
   "author": "Wil Neeley",
-  "url": "http://vaporcdn.com",
+  "url": "http://vcdn.io",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -23,8 +23,10 @@
   },
   "devDependencies": {
     "grunt": "^0.4.5",
-    "grunt-contrib-watch": "^0.6.1",
+    "grunt-contrib-concat": "^0.5.0",
     "grunt-contrib-sass": "^0.8.1",
+    "grunt-contrib-uglify": "^0.6.0",
+    "grunt-contrib-watch": "^0.6.1",
     "grunt-sass": "^0.15.0",
     "matchdep": "^0.3.0",
     "nodemon": "^1.2.1"

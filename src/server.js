@@ -198,19 +198,11 @@ var _                   = require('lodash'),
  */
 
 // Instruct express to serve up static assets
+//app.use(express.static('/'));
 app.use(express.static('public'));
 
 // Trust X-Forwarded-* header fields
 app.enable('trust proxy');
-
-/**
- * Define routes
- */
-
-// Root route
-app.get('/', function(req, res) {
-  res.render('index');
-});
 
 /**
  * Define socket listeners

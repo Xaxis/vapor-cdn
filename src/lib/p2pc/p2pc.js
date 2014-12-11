@@ -1,4 +1,4 @@
-var vcdn = (function(v) {
+(function(v) {
   v.P2PC = function( config ) {
 
     /**
@@ -128,7 +128,7 @@ var vcdn = (function(v) {
               onDataChannelReady  = options.onDataChannelReady;
 
           // PEER/CLIENT - Listen for offers/answers
-          p2ps.onmessage(options.channel_id + '_Listener', function(message) {
+          p2ps.onmessage(options.channel_id, function(message) {
 
             // Reference the SDP message
             var sdp = message.message;
@@ -169,7 +169,7 @@ var vcdn = (function(v) {
 
               // Respond to client with answer
               p2pc.answerPeerOffer(connection_id, sdp, function(answer) {
-                p2ps.send(options.channel_id + '_Listener', message.client_id, message.peer_id, answer);
+                p2ps.send(options.channel_id, message.client_id, message.peer_id, answer);
               });
             }
 
@@ -271,7 +271,7 @@ var vcdn = (function(v) {
           // CLIENT - Create connection offer & send offer to peer
           if (!connection_init) {
             p2pc.createClientOffer(connection_id, function(offer) {
-              p2ps.send(channel_id + '_Listener', connection_id, client_id, offer);
+              p2ps.send(channel_id, connection_id, client_id, offer);
             });
           }
         },

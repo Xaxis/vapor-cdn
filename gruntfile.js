@@ -73,7 +73,55 @@ module.exports = function(grunt) {
     },
 
     /**
-     * Watch
+     * Concatenate frontend JavaScript files into a build file.
+     */
+    concat: {
+      options: {
+        separator: ''
+      },
+      dist: {
+        src: [
+          'src/lib/socket/socket.js',
+          'src/lib/global/global.js',
+          'src/lib/util/util.js',
+          'src/lib/log/log.js',
+          'src/lib/cache/cache.js',
+          'src/lib/serve/serve.js',
+          'src/lib/p2ps/p2ps.js',
+          'src/lib/p2pc/p2pc.js',
+          'src/init.js'
+        ],
+        dest: 'dist/vcdn.js'
+      }
+    },
+
+    /**
+     * Minify frontend JavaScript build file
+     */
+    uglify: {
+      vcdn: {
+        options: {
+          banner:
+          '/*!\n' +
+          ' * <%= pkg.name %> - v<%= pkg.version %>\n' +
+          ' * <%= pkg.copyright %> <%= grunt.template.today("yyyy") %>\n' +
+          ' */\n',
+          mangle: {
+            except: ['vcdn']
+          },
+          beautify: {
+            width: 80,
+            beautify: false
+          }
+        },
+        files: {
+          'dist/vcdn.js': ['dist/vcdn.js']
+        }
+      }
+    },
+
+    /**
+     * Watch for file changes and respond
      */
     watch: {
       options: {
@@ -81,12 +129,13 @@ module.exports = function(grunt) {
       },
       js: {
         files: [
-          'index.js',
-          'public/js/**/*.js'
+          'src/app/*.js',
+          'src/lib/**/*.js'
         ],
         options: {
           spawn: false
-        }
+        },
+        tasks: ['concat', 'uglify']
       },
       html: {
         files: [
@@ -113,6 +162,8 @@ module.exports = function(grunt) {
    * Run `grunt` on the command line
    */
   grunt.registerTask('default', [
+    'concat',
+    'uglify',
     'sass:dev',
     'watch'
   ]);

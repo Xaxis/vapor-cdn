@@ -1,4 +1,4 @@
-var vcdn = (function(v) {
+(function(v) {
   v.Log = {
 
     /**

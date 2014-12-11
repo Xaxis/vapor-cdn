@@ -1,4 +1,4 @@
-var vcdn = (function(v) {
+(function(v) {
   v.Serve = {};
 
   /**
@@ -141,7 +141,6 @@ var vcdn = (function(v) {
         }
       }
     });
-
     return peerAssetsConnection;
   };
 
@@ -279,54 +278,6 @@ var vcdn = (function(v) {
         clearInterval(ctx.watcher.watcher);
       }
 
-      // Handle asset download from peer monitoring/timeout handling
-      if (ctx.watcher.peers) {
-        for (var peer_id in ctx.watcher.peers) {
-          var status = ctx.watcher.peers[peer_id];
-
-          // Initialize asset download form peer
-          if (!status.last_chunk) {
-            status.elapsed = 0;
-            status.last_chunk = status.last_chunk_received_id;
-
-            // Set the maximum time it should take the next chunk from peer to download
-            status.timeout = v.Global.watcher.chunk_timeout_multiple * status.chunk_dl_time;
-          }
-
-          // Update the elapsed time
-          status.elapsed += v.Global.watcher.request_speed;
-
-          // We received next chunk, restart elapsed time for next chunk
-          if (status.last_chunk != status.last_chunk_received_id && !status.all_chunks_received) {
-            status.last_chunk = status.last_chunk_received_id;
-            status.elapsed = 0;
-          }
-
-          // Otherwise the next chunk is taking to long from this peer
-          if (
-            status.elapsed > status.timeout &&
-            !status.all_chunks_received &&
-            !status.expired
-          ) {
-            console.log('Peer chunks taking to long!', status.elapsed, peer_id);
-
-            // Indicate status of chunk request is expired
-            status.expired = true;
-
-            // Add host to the expired hosts list
-            v.Global.init_info.expired.push(peer_id);
-
-            // Delete peer status object so it can no longer be iterated in the watcher
-            delete ctx.watcher.peers[peer_id];
-
-            // De-register peer as asset host (if not already done by a closed connection)
-            if (peer_id in v.Global.peer_asset_connections) {
-              v.Serve.handleBrokenRequests(peer_id);
-            }
-          }
-        }
-      }
-
       // Handle asset download completion
       if (ctx.chunks_pending.length == ctx.chunks_received.length) {
         var
@@ -436,7 +387,6 @@ var vcdn = (function(v) {
    *
    * @param c {Object} The P2PC onDataChannelReady modified channel object
    */
-  // @TODO - Develop more efficient way of encoding chunk headers/sending data?
   v.Serve.handleSendingAssetRequest = function( c ) {
     var requests = JSON.parse(c.data);
 
@@ -517,53 +467,12 @@ var vcdn = (function(v) {
         chunks_received.push(chunk_id);
         request.chunks_received.push(chunk_id);
 
-        // Calculate initial asset chunk download stats
-        if (!request.status) {
-          request.status = {
-            chunk_dl_time: chunk_elapsed_time,
-            estimated_dl_time: chunks_total * chunk_elapsed_time,
-            last_chunk_dl_time: chunk_elapsed_time,
-            actual_dl_time: 0,
-            all_chunks_received: false
-          };
-
-          //console.log('estimate_dl_time', request.status.estimated_dl_time);
-          var connection = v.Global.peer_asset_connections[c.peer_id].connects[c.peer_id].connection;
-          connection.getStats(function() {}, function() {}, function() {});
-        }
-
-        // Indicate the ID of the last chunk received
-        request.status.last_chunk_received_id = chunk_id;
-
-        // Update last chunk download time. Since sending timestamps are created a mere 1 to 2 MS apart and the receiving
-        // timestamp calculation is blocked by the synchronous transfer of the chunk that came before it, we calculate
-        // the last chunk's download time by finding the current chunk_elapsed_time as the difference of the product of
-        // the first chunk's dl time by the number of chunks that have yet been received.
-        var last_chunk_dl_diff = chunk_elapsed_time - (request.status.chunk_dl_time * chunks_received_per);
-        request.status.last_chunk_dl_time = Math.abs(request.status.chunk_dl_time + last_chunk_dl_diff);
-
-        // Increment the "actual" total (per asset) download time
-        request.status.actual_dl_time += request.status.last_chunk_dl_time;
-
-        // Create a peer status reference object within each asset watcher
-        if (!watcher.peers) {
-          watcher.peers = {};
-        }
-
-        // Reference each asset's peer status objects within the assets watcher
-        if (!(c.peer_id in watcher.peers)) {
-          watcher.peers[c.peer_id] = request.status;
-        }
+        //console.log('estimate_dl_time', request.status.estimated_dl_time);
+        //var connection = v.Global.peer_asset_connections[c.peer_id].connects[c.peer_id].connection;
+        //connection.getStats(function() {}, function() {}, function() {});
 
         // Place the asset chunk in the chunk buffer at the appropriate index
         chunks[(chunk_id-1)] = chunk;
-
-        // Update the request status finished flag when we've received all chunks for a given asset from peer
-        if (request.chunks.length == request.chunks_received.length) {
-          request.status.all_chunks_received = true;
-
-          //console.log('actual_dl_time: ', request.status.actual_dl_time);
-        }
 
         //console.log('watcher', watcher);
         //console.log('last chunk DL time: ', c.peer_id, request.status.last_chunk_dl_time);

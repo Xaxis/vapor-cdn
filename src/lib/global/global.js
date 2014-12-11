@@ -1,4 +1,4 @@
-var vcdn = (function(v, global) {
+(function(v, global) {
   v.Global = {
 
     // The asset attribute
