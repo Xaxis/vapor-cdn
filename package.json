@@ -6,7 +6,7 @@
   "description": "The Vapor Content Delivery Network is a system that will allow web sites and web applications to deliver content (site files such as images, scripts, other media, etc.) from concurrent site users thus reducing the content serving loads of primary content servers.",
   "author": "Wil Neeley",
   "url": "http://vcdn.io",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
