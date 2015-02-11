@@ -11,9 +11,9 @@ module.exports = function(grunt) {
      */
     project: {
       public: '/public',
-      sass: '<%= project.public %>/assets/sass',
+      sass: '<%= project.public %>/vcdn.io/assets/sass',
       css: [
-        '<%= project.public %>/assets/scss/style.scss'
+        '<%= project.public %>/vcdn.io/assets/css/style.scss'
       ],
       js: [
         '<%= project.public %>/js/*.js'
@@ -34,7 +34,7 @@ module.exports = function(grunt) {
     },
 
     /**
-     * Sass configuration
+     * Sass configuration for vcdn.io
      */
     sass: {
       dev: {
@@ -46,9 +46,9 @@ module.exports = function(grunt) {
         files: [
           {
             expand: true,
-            cwd: 'public/assets/sass',
+            cwd: 'public/vcdn.io/assets/sass',
             src: ['**/index.scss'],
-            dest: 'public/assets/css',
+            dest: 'public/vcdn.io/assets/css',
             ext: '.css'
           }
         ]
@@ -61,9 +61,9 @@ module.exports = function(grunt) {
         files: [
           {
             expand: true,
-            cwd: 'public/assets/sass',
+            cwd: 'public/vcdn.io/assets/sass',
             src: ['**/index.scss'],
-            dest: 'public/assets/css',
+            dest: 'public/vcdn.io/assets/css',
             ext: '.css'
           }
         ]
@@ -144,7 +144,7 @@ module.exports = function(grunt) {
         }
       },
       sass: {
-        files: 'public/assets/sass/*.{scss,sass}',
+        files: 'public/vcdn.io/assets/sass/*.{scss,sass}',
         tasks: ['sass:dev']
       }
     }

@@ -58,7 +58,8 @@
   }();
 
   /**
-   * Signals VCDN server that client is ready to act as a host.
+   * Signals VCDN server that client is ready to act as a host. Message consists of host retrieval limit
+   * and list of assets client is capable of hosting to peers.
    *
    * @param options {Object} Parameters
    * @param options.ready {Boolean} Flag indicating ready to host
@@ -95,7 +96,7 @@
   };
 
   /**
-   * Initializes asset request listeners for each peer.
+   * Initializes asset request listeners for each peer. Wraps around P2PC library functions.
    *
    * @param options {Object} Parameters
    * @param options.id {String} P2PC peerConnection name
