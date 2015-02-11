@@ -1,0 +1,6 @@
+//--------
+// Main Styling Access Point
+// This file combines all partials into one main style sheet that is loaded on all pages.
+//
+@import "vars";           // Site wide variables
+@import "base";           // Site wide structure and base styles

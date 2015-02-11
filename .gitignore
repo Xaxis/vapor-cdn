@@ -43,4 +43,4 @@ node_modules/
 nodemon.json
 public/assets/
 public/vcdn/
-public/vcdn.io/
+public/vcdn.io/bower_components/

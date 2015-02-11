@@ -1,0 +1,132 @@
+//--------
+// Site specific structure variables
+$site-font-size: 16px;
+$site-font-family: sans-serif;
+$site-grid: 40px;
+$site-gutter: 10px;
+$site-col: $site-grid + ($site-gutter * 2);
+$site-col-1: $site-col * 1;
+$site-col-2: $site-col * 2;
+$site-col-3: $site-col * 3;
+$site-col-4: $site-col * 4;
+$site-col-5: $site-col * 5;
+$site-col-6: $site-col * 6;
+$site-col-7: $site-col * 7;
+$site-col-8: $site-col * 8;
+$site-col-9: $site-col * 9;
+$site-col-10: $site-col * 10;
+$site-col-11: $site-col * 11;
+$site-col-12: $site-col * 12;
+$site-col-13: $site-col * 13;
+$site-col-14: $site-col * 14;
+$site-col-15: $site-col * 15;
+$site-col-16: $site-col * 16;
+$site-mobile-breakpoint: $site-col-13;
+$site-header-height: 60px;
+$site-min-width: 320px;
+$site-max-width: 960px;
+
+//--------
+// Color variables
+$default-border-color: rgba(204, 204, 204, 1.00);
+
+$default-text-color: rgba(93, 94, 89, 1.00);
+$subtitle-text-color: rgba(93, 94, 89, 0.50);
+$footer-text-color: $subtitle-text-color;
+
+$default-bg-color: rgba(250, 250, 250, 1.00);
+$alt-bg-color-1: rgba(0, 191, 255, 1.0);
+$alt-bg-color-1-faded: rgba(0, 191, 255, 0.35);
+
+$default-link-color: rgba(90, 121, 165, 1.00);
+$default-link-hover-color: rgba(95, 158, 160, 1.00);
+$default-banner-link-color: rgba(255, 255, 255, 1.00);
+$header-link-color: $default-text-color;
+$alt-link-color: $default-text-color;
+$alt-link-hover-color: $default-border-color;
+
+$default-shadow-color: rgba(90, 121, 165, 1.00);
+$default-shadow-color-faded: rgba(90, 121, 165, 0.35);
+$header-shadow-color: rgba(204, 204, 204, 0.35);
+
+//--------
+// Transition variables
+$default-speed: 0.3s;
+$default-easing: linear;
+
+//--------
+// Site specific mixins
+
+// Vertically middle align an element
+@mixin vertical-align {
+  &:before {
+    content: '';
+    height: 100%;
+    display: inline-block;
+    vertical-align: middle;
+  }
+}
+
+// Alternate link style
+@mixin alt-link {
+  display: inline-block;
+  border-bottom: 1px dotted $alt-link-color;
+  & {
+    color: $alt-link-color;
+    text-decoration: none;
+  }
+  &:hover, &:active {
+    color: $alt-link-hover-color;
+    border-bottom: 1px dotted $alt-link-hover-color;
+  }
+}
+
+// Banner link style
+@mixin banner-link {
+  display: inline-block;
+  & {
+    color: $default-banner-link-color;
+    text-decoration: none;
+  }
+  &:hover, &:active {
+    text-decoration: underline;
+  }
+}
+
+// An element background color option
+@mixin background-1 {
+  background: $default-bg-color;
+}
+
+// An element background gradient option
+@mixin gradient-1 {
+  background: rgb(250,250,250);
+  background: -moz-linear-gradient(top,  rgba(250,250,250,1) 0%, rgba(221,221,221,1) 100%);
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(250,250,250,1)), color-stop(100%,rgba(221,221,221,1)));
+  background: -webkit-linear-gradient(top,  rgba(250,250,250,1) 0%,rgba(221,221,221,1) 100%);
+  background: -o-linear-gradient(top,  rgba(250,250,250,1) 0%,rgba(221,221,221,1) 100%);
+  background: -ms-linear-gradient(top,  rgba(250,250,250,1) 0%,rgba(221,221,221,1) 100%);
+  background: linear-gradient(to bottom,  rgba(250,250,250,1) 0%,rgba(221,221,221,1) 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#fafafa', endColorstr='#dddddd',GradientType=0 );
+}
+
+// Mirror of gradient 1
+@mixin gradient-1-flip {
+  background: rgb(221,221,221);
+  background: -moz-linear-gradient(top,  rgba(221,221,221,1) 0%, rgba(250,250,250,1) 100%);
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(221,221,221,1)), color-stop(100%,rgba(250,250,250,1)));
+  background: -webkit-linear-gradient(top,  rgba(221,221,221,1) 0%,rgba(250,250,250,1) 100%);
+  background: -o-linear-gradient(top,  rgba(221,221,221,1) 0%,rgba(250,250,250,1) 100%);
+  background: -ms-linear-gradient(top,  rgba(221,221,221,1) 0%,rgba(250,250,250,1) 100%);
+  background: linear-gradient(to bottom,  rgba(221,221,221,1) 0%,rgba(250,250,250,1) 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#dddddd', endColorstr='#fafafa',GradientType=0 );
+}
+
+// Header/Footer box shadow
+@mixin viewport-shadow( $which ) {
+  @if ($which == 'header') {
+    box-shadow: 0 5px 5px -4px $header-shadow-color;
+  } @else {
+    box-shadow: 0 -5px 5px -4px $header-shadow-color;
+  }
+}
