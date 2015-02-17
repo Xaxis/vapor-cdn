@@ -102,8 +102,9 @@ h1, h2, h3, h4, h5, h6 {
 //--------
 // "Link" element resets
 a {
+  color: $default-link-color;
   text-decoration: none;
-  &, &:hover, &:active {
+  &:hover, &:active {
     color: $default-link-color;
     text-decoration: underline;
   }
@@ -141,6 +142,7 @@ header {
   border-bottom: 1px solid $default-border-color;
   font-size: 1.1rem;
   font-weight: lighter;
+  z-index: 9980;
   ul {
     height: $site-header-height;
     overflow: auto;
@@ -315,6 +317,7 @@ footer {
   bottom: 0;
   font-size: 0.9rem;
   border-top: 1px solid $default-border-color;
+  z-index: 9980;
   li {
     & + li {
       margin-left: $site-gutter;
@@ -430,6 +433,9 @@ footer {
         margin-top: $site-gutter;
       }
     }
+    ul {
+      line-height: 1.450rem;
+    }
     @media only screen and (max-width: $site-mobile-breakpoint) {
       &:not(.no-respond) {
         width: 100% !important;
@@ -442,4 +448,45 @@ footer {
       }
     }
   }
+}
+
+//--------
+// Loader overlay
+#loader-overlay {
+  display: none;
+  opacity: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9970;
+  background: $loader-bg-color;
+  &.active {
+    display: block;
+  }
+  .centered-area {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    &:before {
+      content: '';
+      display: inline-block;
+      vertical-align: middle;
+      height: 100%;
+    }
+  }
+  .centered {
+    display: inline-block;
+    margin: 0 auto;
+  }
+  i {
+    font-size: 5.0rem;
+    color: $default-bg-color;
+  }
+}
+
+//--------
+// Site content container
+#site-content {
+  opacity: 0;
 }
